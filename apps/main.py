@@ -41,7 +41,6 @@ def read_titanic_tree():
     tree = james.has_decision_tree_model()
     return {"tree": tree}
 
-@app.get("/titanic/model")
 @app.get("/titanic/model_name")
 def read_titanic_model():
     james = JamesController()

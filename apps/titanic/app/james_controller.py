@@ -23,3 +23,7 @@ class JamesController:
     def get_training_model_name(self):
         return self.service.get_training_model_name()
 
+    def get_training_model_accuracy(self):
+        return self.service.get_training_model_accuracy()
+
+    
