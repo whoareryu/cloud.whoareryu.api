@@ -1,9 +1,5 @@
+from apps.titanic.app.rose_model import RoseModel
 from apps.titanic.app.walter_reader import WalterReader
-from apps.titanic.app.rose_model import RoseModel as RoseModel
-
-from pathlib import Path
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
 
 
 class JackService:
@@ -30,3 +26,6 @@ class JackService:
     def get_training_model_name(self) -> str:
         return self.rose.get_training_model_name()
 
+    def get_training_model_accuracy(self) -> float:
+        df = self.walter.get_full_dataframe()
+        return self.rose.compute_training_accuracy(df)

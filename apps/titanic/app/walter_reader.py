@@ -28,8 +28,11 @@ class WalterReader:
         # 사망자 수 반환
         return int((df["Survived"] == 0).sum())
 
-    
+    def get_full_dataframe(self):
+        """모델 학습·평가용 전체 데이터."""
+        return pd.read_csv(_CSV_PATH)
 
+    
     
 
 
