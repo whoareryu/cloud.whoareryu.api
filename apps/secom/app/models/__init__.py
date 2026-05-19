@@ -1,4 +1,6 @@
-from apps.secom.app.models.user_model import SecUser
-from apps.secom.app.models.user_role import UserRole
+from apps.auth.user_model import User
+from apps.auth.user_role import UserRole
 
-__all__ = ["SecUser", "UserRole"]
+SecUser = User
+
+__all__ = ["SecUser", "User", "UserRole"]

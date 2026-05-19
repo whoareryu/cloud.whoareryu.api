@@ -1,5 +1,6 @@
 import logging
 import re
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from apps.auth.password import hash_password, verify_password
 from apps.auth.user_model import User
+from apps.auth.user_role import UserRole
 from apps.database import DATABASE_INIT_ERROR, get_sync_db
 
 logger = logging.getLogger(__name__)
@@ -181,6 +183,7 @@ def signup(body: SignupRequest, db: Session = Depends(get_sync_db)):
         email=body.email.lower(),
         nickname=body.nickname.strip(),
         password_hash=hash_password(body.password),
+        role=UserRole.USER,
     )
     db.add(user)
     try:
@@ -191,6 +194,14 @@ def signup(body: SignupRequest, db: Session = Depends(get_sync_db)):
         logger.exception("회원가입 DB 저장 실패")
         raise HTTPException(status_code=500, detail="회원가입 처리 중 오류가 발생했습니다.") from None
 
+    logger.info(
+        "[auth] users 테이블 INSERT 완료 — id=%s username=%s email=%s nickname=%s role=%s",
+        user.id,
+        user.username,
+        user.email,
+        user.nickname,
+        user.role.value,
+    )
     return UserPublic(username=user.username, nickname=user.nickname, email=user.email)
 
 
@@ -205,4 +216,21 @@ def login(body: LoginRequest, db: Session = Depends(get_sync_db)):
     if user is None or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="아이디 또는 비밀번호가 올바르지 않습니다.")
 
+    user.last_login_at = datetime.now(timezone.utc)
+    try:
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
+        logger.exception("로그인 시각 DB 저장 실패")
+        raise HTTPException(
+            status_code=500, detail="로그인 처리 중 오류가 발생했습니다."
+        ) from None
+
+    logger.info(
+        "[auth] users 테이블 로그인 성공 — id=%s username=%s last_login_at=%s",
+        user.id,
+        user.username,
+        user.last_login_at,
+    )
     return UserPublic(username=user.username, nickname=user.nickname, email=user.email)

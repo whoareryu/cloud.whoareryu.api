@@ -23,19 +23,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from apps.auth.auth_router import SignupRequest, UserPublic, router as auth_router
+from apps.auth.auth_router import LoginRequest, SignupRequest, UserPublic, router as auth_router
+from apps.auth.auth_router import _db_unavailable as auth_db_unavailable
+from apps.auth.auth_router import login as auth_login
 from apps.auth.auth_router import signup as auth_signup
 from apps.auth.user_model import User  # noqa: F401 — Base.metadata 등록
-from apps.secom.app.models.user_model import SecUser  # noqa: F401 — Base.metadata 등록
 from apps.secom.app.controllers.user_controller import router as secom_router
+from apps.gourmet.router import router as gourmet_router
+from apps.gourmet.services.today_picks_service import seed_restaurants_if_empty
+from apps.database import SyncSessionLocal
 from apps.matrix.app.keymaker import MissingGeminiKeyError, keymaker
 from apps.adapters.db_health_adapter import SqlAlchemyDbHealthAdapter
-from apps.database import Base, engine, get_db, get_sync_db, sync_engine
+from urllib.parse import urlparse
+
+from apps.database import DATABASE_URL, ensure_sync_tables, get_db, get_sync_db, init_db
 from apps.doro.app.doro_director import DoroDirector
 from apps.titanic.app.james_controller import JamesController
-from apps.secom.app.schemas.user_schema import UserSchema
-from apps.secom.app.controllers.user_controller import UserController
-
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,15 +48,31 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if sync_engine is not None:
-        Base.metadata.create_all(sync_engine)
-        logger.info("DB 테이블 확인 완료 (users, secom_users 등)")
+    try:
+        host = urlparse(DATABASE_URL or "").hostname or "(unknown)"
+        await init_db()
+        ensure_sync_tables()
+        if SyncSessionLocal is not None:
+            db = SyncSessionLocal()
+            try:
+                seed_restaurants_if_empty(db)
+            finally:
+                db.close()
+        logger.info(
+            "Neon PostgreSQL 연결 완료 (host=%s). "
+            "콘솔 Tables 가 비어 있으면 backend/.env 의 DATABASE_URL 이 "
+            "Neon 대시보드 Connection string 과 같은지 확인하세요.",
+            host,
+        )
+    except RuntimeError as e:
+        logger.warning("DB 초기화 스킵: %s", e)
     yield
 
 
 app = FastAPI(title="Whoareryu Main Page", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(secom_router)
+app.include_router(gourmet_router)
 
 
 class ChatMessage(BaseModel):
@@ -223,27 +242,23 @@ def read_doro_data():
 #회원가입
 @app.post("/signup", response_model=UserPublic, status_code=201, tags=["회원가입"])
 def signup_member(body: SignupRequest, db: Session = Depends(get_sync_db)):
-    """회원가입 — auth-modal POST 연동."""
+    """회원가입 — localhost:3000 → Neon `users` 단일 테이블."""
+    auth_db_unavailable()
     logger.info(
-        "회원가입 요청 수신 — username=%s email=%s nickname=%s password=%s password_confirm=%s",
+        "[main] 회원가입 요청 — username=%s email=%s nickname=%s",
         body.username,
         body.email,
         body.nickname,
-        body.password,
-        body.password_confirm,
     )
-    user_schema = UserSchema(
-        username=body.username,
-        email=str(body.email),
-        nickname=body.nickname,
-        password=body.password,
-        role="user",
-    )
-
-    user_controller = UserController()
-    user_controller.save_user(user_schema, db)
-
     return auth_signup(body, db)
+
+
+@app.post("/login", response_model=UserPublic, tags=["로그인"])
+def login_member(body: LoginRequest, db: Session = Depends(get_sync_db)):
+    """로그인 — users 테이블 검증 + last_login_at 갱신."""
+    auth_db_unavailable()
+    logger.info("[main] 로그인 요청 — username=%s", body.username)
+    return auth_login(body, db)
 
 
 if __name__ == "__main__":

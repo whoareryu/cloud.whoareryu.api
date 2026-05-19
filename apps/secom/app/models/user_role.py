@@ -1,9 +1,5 @@
-import enum
+"""하위 호환 — 역할 enum 은 auth 단일 정의를 사용."""
 
+from apps.auth.user_role import UserRole
 
-class UserRole(str, enum.Enum):
-    """사이트 보안 역할 — admin: 사이트 관리자, user: 사이트사용유저, partner: 사이트등록유저"""
-
-    ADMIN = "admin"
-    USER = "user"
-    PARTNER = "partner"
+__all__ = ["UserRole"]
