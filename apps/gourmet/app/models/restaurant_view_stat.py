@@ -1,17 +1,16 @@
-import datetime
+﻿import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from apps.database import Base
+from apps.database import Base, IntIdPrimaryKeyMixin
 
 
-class RestaurantViewStat(Base):
+class RestaurantViewStat(IntIdPrimaryKeyMixin, Base):
     """매장별 조회(관심) 횟수 — GourmetMate 관심도 지표."""
 
     __tablename__ = "restaurant_view_stats"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     restaurant_id: Mapped[int] = mapped_column(
         ForeignKey("restaurants.id", ondelete="CASCADE"),
         unique=True,

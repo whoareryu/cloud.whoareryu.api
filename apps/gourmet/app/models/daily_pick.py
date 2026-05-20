@@ -1,12 +1,12 @@
-import datetime
+﻿import datetime
 
 from sqlalchemy import Date, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from apps.database import Base
+from apps.database import Base, IntIdPrimaryKeyMixin
 
 
-class DailyPick(Base):
+class DailyPick(IntIdPrimaryKeyMixin, Base):
     """날짜별 오늘의 맛집 10선."""
 
     __tablename__ = "daily_picks"
@@ -15,7 +15,6 @@ class DailyPick(Base):
         UniqueConstraint("pick_date", "rank", name="uq_daily_pick_date_rank"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     pick_date: Mapped[datetime.date] = mapped_column(Date, index=True)
     restaurant_id: Mapped[int] = mapped_column(
         ForeignKey("restaurants.id", ondelete="CASCADE"), index=True

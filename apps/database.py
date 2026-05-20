@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,19 @@ DATABASE_INIT_ERROR: Optional[str] = None
 # SQLAlchemy 2.0 — DeclarativeBase (모든 ORM 모델이 상속)
 class Base(DeclarativeBase):
     pass
+
+
+class IntIdPrimaryKeyMixin:
+    """모든 테이블 공통 PK — `docs/DevOps/Backend/ENTITY_RULE.md`.
+
+    int 자동 증가, DB 컬럼명·속성명 모두 ``id``.
+    ``sort_order`` 로 서브클래스 컬럼보다 앞에 두어 물리 DDL에서도 id 가 선행되게 한다.
+    새 모델: ``class Foo(IntIdPrimaryKeyMixin, Base):``
+    """
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True, autoincrement=True, sort_order=-1000
+    )
 
 
 engine: Optional[AsyncEngine] = None
@@ -105,9 +118,8 @@ else:
 def _register_orm_models() -> None:
     """create_all 전에 ORM 모델이 Base.metadata 에 등록되도록 import."""
     from apps.auth.user_model import User  # noqa: F401
-    from apps.gourmet.models.daily_pick import DailyPick  # noqa: F401
-    from apps.gourmet.models.restaurant import Restaurant  # noqa: F401
-    from apps.gourmet.models.restaurant_view_stat import RestaurantViewStat  # noqa: F401
+    from apps.gourmet.app.models.sgma_restaurant import SgmaRestaurant  # noqa: F401
+    from apps.gourmet.app.models.search_query_log import SearchQueryLog  # noqa: F401
 
 
 def ensure_sync_tables() -> None:

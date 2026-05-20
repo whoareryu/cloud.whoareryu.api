@@ -1,4 +1,4 @@
-"""식당 상세 컬럼 스키마·프로필 동기화."""
+﻿"""식당 상세 컬럼 스키마·프로필 동기화."""
 
 from __future__ import annotations
 
@@ -7,9 +7,10 @@ import logging
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from apps.gourmet.data.restaurant_profile_enrich import build_profile
-from apps.gourmet.data.seed_restaurants import SEED_RESTAURANTS
-from apps.gourmet.models.restaurant import Restaurant
+from apps.gourmet.app.data.restaurant_images import image_url_for_restaurant
+from apps.gourmet.app.data.restaurant_profile_enrich import build_profile
+from apps.gourmet.app.data.seed_restaurants import SEED_RESTAURANTS
+from apps.gourmet.app.models.restaurant import Restaurant
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,8 @@ def ensure_restaurant_detail_schema(db: Session) -> None:
         "ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS reservation_available BOOLEAN DEFAULT false",
         "ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS reservation_note VARCHAR(256)",
         "ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS menu_items JSONB DEFAULT '[]'::jsonb",
+        "ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION",
+        "ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION",
     ]
     for stmt in stmts:
         db.execute(text(stmt))
@@ -69,3 +72,22 @@ def sync_restaurant_profiles(db: Session) -> None:
     if updated:
         db.commit()
         logger.info("[gourmet] restaurant profiles 동기화 %s건", updated)
+
+
+def sync_restaurant_images(db: Session) -> None:
+    """전 매장 대표 이미지를 장르·메뉴 키워드에 맞게 갱신."""
+    restaurants = list(db.execute(select(Restaurant)).scalars().all())
+    updated = 0
+    for r in restaurants:
+        new_url = image_url_for_restaurant(
+            r.name,
+            r.category_slug,
+            r.description or "",
+            menu_items=list(r.menu_items or []),
+        )
+        if r.image_url != new_url:
+            r.image_url = new_url
+            updated += 1
+    if updated:
+        db.commit()
+        logger.info("[gourmet] restaurant images 동기화 %s건", updated)

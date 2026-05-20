@@ -1,4 +1,4 @@
-import sys
+﻿import sys
 from logging.config import fileConfig
 from pathlib import Path
 
@@ -11,9 +11,8 @@ if str(_backend_root) not in sys.path:
     sys.path.insert(0, str(_backend_root))
 
 from apps.auth.user_model import User  # noqa: F401
-from apps.gourmet.models.daily_pick import DailyPick  # noqa: F401
-from apps.gourmet.models.restaurant import Restaurant  # noqa: F401
-from apps.gourmet.models.restaurant_view_stat import RestaurantViewStat  # noqa: F401
+from apps.gourmet.app.models.search_query_log import SearchQueryLog  # noqa: F401
+from apps.gourmet.app.models.sgma_restaurant import SgmaRestaurant  # noqa: F401
 from apps.database import Base, get_sync_database_url
 
 config = context.config

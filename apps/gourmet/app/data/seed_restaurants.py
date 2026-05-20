@@ -1,12 +1,12 @@
-"""서울 맛집 시드 데이터."""
+﻿"""서울 맛집 시드 데이터."""
 
 from __future__ import annotations
 
 import re
 from typing import Any
 
-from apps.gourmet.data.restaurant_profile_enrich import enrich_seed_row
-from apps.gourmet.data.seed_restaurants_extra import SEED_RESTAURANTS_EXTRA
+from apps.gourmet.app.data.restaurant_profile_enrich import enrich_seed_row
+from apps.gourmet.app.data.seed_restaurants_extra import SEED_RESTAURANTS_EXTRA
 
 
 def normalize_name_key(name: str) -> str:

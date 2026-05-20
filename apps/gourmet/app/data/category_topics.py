@@ -1,4 +1,4 @@
-"""카테고리별 맛집 주제(넷플릭스 행) 정의."""
+﻿"""카테고리별 맛집 주제(넷플릭스 행) 정의."""
 
 from __future__ import annotations
 
@@ -401,7 +401,7 @@ def topics_for_category(category_slug: str) -> list[TopicDef]:
 
 
 def filter_topics_by_query(topics: list[TopicDef], q: str) -> list[TopicDef]:
-    from apps.gourmet.data.search_keywords import expand_search_terms
+    from apps.gourmet.app.data.search_keywords import expand_search_terms
 
     terms = expand_search_terms(q)
     if not terms:

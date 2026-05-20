@@ -1,4 +1,4 @@
-"""매장 조회 수 기록·조회."""
+﻿"""매장 조회 수 기록·조회."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from apps.gourmet.models.restaurant import Restaurant
-from apps.gourmet.models.restaurant_view_stat import RestaurantViewStat
+from apps.gourmet.app.models.restaurant import Restaurant
+from apps.gourmet.app.models.restaurant_view_stat import RestaurantViewStat
 
 logger = logging.getLogger(__name__)
 

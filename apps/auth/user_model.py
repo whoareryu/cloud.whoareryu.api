@@ -4,15 +4,14 @@ from sqlalchemy import DateTime, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.auth.user_role import UserRole
-from apps.database import Base
+from apps.database import Base, IntIdPrimaryKeyMixin
 
 
-class User(Base):
+class User(IntIdPrimaryKeyMixin, Base):
     """사이트 회원 — auth·secom 공통 단일 테이블 (`users`)."""
 
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     nickname: Mapped[str] = mapped_column(String(64), unique=True, index=True)

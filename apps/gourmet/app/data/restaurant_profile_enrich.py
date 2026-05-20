@@ -1,4 +1,4 @@
-"""식당 상세 프로필(메뉴·주소·연락처) 생성·보강."""
+﻿"""식당 상세 프로필(메뉴·주소·연락처) 생성·보강."""
 
 from __future__ import annotations
 
@@ -182,4 +182,6 @@ def enrich_seed_row(row: dict[str, Any]) -> dict[str, Any]:
     out = {**row}
     for key, val in profile.items():
         out.setdefault(key, val)
-    return out
+    from apps.gourmet.app.data.restaurant_images import apply_image_to_seed_row
+
+    return apply_image_to_seed_row(out)
