@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Integer, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import Boolean, Integer, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from apps.database import Base
@@ -27,6 +27,15 @@ class Restaurant(Base):
     closed_weekdays: Mapped[list[int]] = mapped_column(
         ARRAY(Integer), default=list, server_default="{}"
     )
+    address: Mapped[str] = mapped_column(String(256), default="", server_default="")
+    opening_hours: Mapped[str] = mapped_column(String(256), default="", server_default="")
+    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    instagram_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    reservation_available: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    reservation_note: Mapped[str] = mapped_column(String(256), default="", server_default="")
+    menu_items: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
 
     view_stat: Mapped["RestaurantViewStat | None"] = relationship(
         "RestaurantViewStat",

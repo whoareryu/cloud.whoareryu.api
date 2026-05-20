@@ -69,11 +69,18 @@ def _is_similar_to_chosen(restaurant: Restaurant, chosen: list[Restaurant]) -> b
     return False
 
 
-def seed_restaurants_if_empty(db: Session) -> None:
-    count = db.execute(select(func.count(Restaurant.id))).scalar_one()
-    if count > 0:
-        return
+def ensure_restaurants_seeded(db: Session) -> None:
+    """시드 목록을 DB와 맞춤 — 비어 있으면 전체 삽입, 있으면 이름 기준으로 누락분만 추가."""
+    existing_names = set(db.execute(select(Restaurant.name)).scalars().all())
+    to_add: list[dict] = []
     for row in SEED_RESTAURANTS:
+        if row["name"] not in existing_names:
+            to_add.append(row)
+
+    if not to_add:
+        return
+
+    for row in to_add:
         db.add(
             Restaurant(
                 name=row["name"],
@@ -84,10 +91,26 @@ def seed_restaurants_if_empty(db: Session) -> None:
                 description=row["description"],
                 image_url=row["image_url"],
                 closed_weekdays=list(row["closed_weekdays"]),
+                address=row.get("address", ""),
+                opening_hours=row.get("opening_hours", ""),
+                phone=row.get("phone"),
+                instagram_url=row.get("instagram_url"),
+                reservation_available=bool(row.get("reservation_available", False)),
+                reservation_note=row.get("reservation_note", ""),
+                menu_items=list(row.get("menu_items") or []),
             )
         )
     db.commit()
-    logger.info("[gourmet] restaurants 시드 %s건 INSERT", len(SEED_RESTAURANTS))
+    logger.info(
+        "[gourmet] restaurants 시드 +%s건 (전체 시드 %s곳)",
+        len(to_add),
+        len(SEED_RESTAURANTS),
+    )
+
+
+def seed_restaurants_if_empty(db: Session) -> None:
+    """하위 호환 — ensure_restaurants_seeded 와 동일."""
+    ensure_restaurants_seeded(db)
 
 
 def _yesterday_restaurants(db: Session, today: datetime.date) -> list[Restaurant]:

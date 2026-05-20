@@ -54,6 +54,13 @@ COMMON_TOPICS: tuple[TopicDef, ...] = (
         ("더위", "여름", "시원", "냉면", "샐러드", "가벼운"),
     ),
     TopicDef(
+        "hangover-cure",
+        "해장 맛집",
+        "숙취에도 든든한 국물·콩나물 한 그릇",
+        "🍲",
+        ("해장", "숙취", "국밥", "뼈해장", "콩나물", "우거지", "해장국", "얼큰"),
+    ),
+    TopicDef(
         "cold-weather",
         "추운 날씨 맛집",
         "든든한 한 끼로 몸 녹이기",
@@ -394,14 +401,16 @@ def topics_for_category(category_slug: str) -> list[TopicDef]:
 
 
 def filter_topics_by_query(topics: list[TopicDef], q: str) -> list[TopicDef]:
-    needle = q.strip().lower()
-    if not needle:
+    from apps.gourmet.data.search_keywords import expand_search_terms
+
+    terms = expand_search_terms(q)
+    if not terms:
         return topics
     out: list[TopicDef] = []
     for t in topics:
         hay = " ".join(
             [t.title, t.subtitle, t.slug, " ".join(t.keywords)]
         ).lower()
-        if needle in hay:
+        if any(term in hay for term in terms):
             out.append(t)
     return out

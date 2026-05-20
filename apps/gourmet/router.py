@@ -10,6 +10,8 @@ from apps.gourmet.services.category_browse_service import (
     get_category_browse,
     list_topic_catalog,
 )
+from apps.gourmet.services.home_browse_service import get_home_browse
+from apps.gourmet.services.restaurant_search_service import search_restaurants
 from apps.gourmet.services.today_picks_service import get_today_picks
 from apps.gourmet.services.view_stat_service import (
     get_view_stat,
@@ -48,6 +50,42 @@ class RecordViewResponse(BaseModel):
     message: str = "조회가 기록되었습니다."
 
 
+class MenuItemResponse(BaseModel):
+    name: str
+    price: int
+    note: str = ""
+
+
+class RestaurantDetailResponse(BaseModel):
+    id: int
+    name: str
+    category_slug: str
+    category_label: str
+    district: str
+    description: str
+    image_url: str
+    view_count: int = 0
+    closed_weekdays: list[int] = []
+    closed_weekdays_label: str = ""
+    address: str = ""
+    opening_hours: str = ""
+    phone: str | None = None
+    instagram_url: str | None = None
+    reservation_available: bool = False
+    reservation_note: str = ""
+    menu_items: list[MenuItemResponse] = []
+
+
+WEEKDAY_KO = ("월", "화", "수", "목", "금", "토", "일")
+
+
+def _format_closed_weekdays(closed: list[int]) -> str:
+    if not closed:
+        return "연중무휴 (휴무 정보 없음)"
+    days = [WEEKDAY_KO[d] for d in sorted(closed) if 0 <= d <= 6]
+    return f"매주 {', '.join(days)}요일 휴무"
+
+
 class TodayPicksResponse(BaseModel):
     title: str = "오늘의 맛집"
     date: str
@@ -70,6 +108,27 @@ class TopicRowResponse(BaseModel):
     subtitle: str
     emoji: str
     keywords: list[str] = []
+    restaurants: list[TodayPickItem]
+    category_slug: str | None = None
+    category_label: str | None = None
+
+
+class HomeBrowseResponse(BaseModel):
+    query: str | None = None
+    topic_count: int
+    topics: list[TopicRowResponse]
+
+
+class SearchMatchedTopic(BaseModel):
+    slug: str
+    title: str
+    emoji: str
+
+
+class RestaurantSearchResponse(BaseModel):
+    query: str
+    summary: str
+    matched_topics: list[SearchMatchedTopic] = []
     restaurants: list[TodayPickItem]
 
 
@@ -120,6 +179,69 @@ def read_category_browse(
     )
 
 
+@router.get("/home-browse", response_model=HomeBrowseResponse)
+def read_home_browse(
+    q: str | None = None,
+    db: Session = Depends(get_sync_db),
+):
+    """메인 — 전 카테고리 주제 추천을 섞어서 반환."""
+    if DATABASE_INIT_ERROR:
+        raise HTTPException(status_code=503, detail="데이터베이스에 연결할 수 없습니다.")
+    try:
+        rows = get_home_browse(db, q=q)
+    except Exception:
+        logger.exception("[gourmet] home-browse 실패")
+        raise HTTPException(
+            status_code=500,
+            detail="홈 맛집 목록을 불러오지 못했습니다.",
+        ) from None
+    topics = [
+        TopicRowResponse(
+            slug=r["slug"],
+            title=r["title"],
+            subtitle=r["subtitle"],
+            emoji=r["emoji"],
+            keywords=r["keywords"],
+            restaurants=[TodayPickItem(**item) for item in r["restaurants"]],
+            category_slug=r.get("category_slug"),
+            category_label=r.get("category_label"),
+        )
+        for r in rows
+    ]
+    return HomeBrowseResponse(query=q, topic_count=len(topics), topics=topics)
+
+
+@router.get("/search", response_model=RestaurantSearchResponse)
+def read_restaurant_search(
+    q: str,
+    db: Session = Depends(get_sync_db),
+):
+    """검색어에 맞는 맛집 추천 (메뉴·설명·주제 키워드)."""
+    if DATABASE_INIT_ERROR:
+        raise HTTPException(status_code=503, detail="데이터베이스에 연결할 수 없습니다.")
+    if not q.strip():
+        return RestaurantSearchResponse(
+            query="",
+            summary="",
+            matched_topics=[],
+            restaurants=[],
+        )
+    try:
+        result = search_restaurants(db, q)
+    except Exception:
+        logger.exception("[gourmet] search 실패 q=%s", q)
+        raise HTTPException(
+            status_code=500,
+            detail="검색 결과를 불러오지 못했습니다.",
+        ) from None
+    return RestaurantSearchResponse(
+        query=result["query"],
+        summary=result["summary"],
+        matched_topics=[SearchMatchedTopic(**t) for t in result["matched_topics"]],
+        restaurants=[TodayPickItem(**item) for item in result["restaurants"]],
+    )
+
+
 @router.get("/categories/{category_slug}/topics", response_model=list[TopicMeta])
 def read_category_topic_catalog(category_slug: str):
     """주제 검색용 카탈로그."""
@@ -162,6 +284,51 @@ def read_today_picks(db: Session = Depends(get_sync_db)):
             )
         )
     return TodayPicksResponse(date=pick_date.isoformat(), picks=picks)
+
+
+@router.get("/restaurants/{restaurant_id}", response_model=RestaurantDetailResponse)
+def read_restaurant_detail(restaurant_id: int, db: Session = Depends(get_sync_db)):
+    """매장 상세 정보."""
+    if DATABASE_INIT_ERROR:
+        raise HTTPException(status_code=503, detail="데이터베이스에 연결할 수 없습니다.")
+    from apps.gourmet.models.restaurant import Restaurant
+    from apps.gourmet.services.restaurant_profile_service import sync_restaurant_profiles
+
+    sync_restaurant_profiles(db)
+    restaurant = db.get(Restaurant, restaurant_id)
+    if restaurant is None:
+        raise HTTPException(status_code=404, detail="식당을 찾을 수 없습니다.")
+    stat = get_view_stat(db, restaurant_id)
+    closed = list(restaurant.closed_weekdays or [])
+    raw_menu = restaurant.menu_items or []
+    menu_items = [
+        MenuItemResponse(
+            name=m.get("name", ""),
+            price=int(m.get("price", 0)),
+            note=m.get("note") or "",
+        )
+        for m in raw_menu
+        if isinstance(m, dict) and m.get("name")
+    ]
+    return RestaurantDetailResponse(
+        id=restaurant.id,
+        name=restaurant.name,
+        category_slug=restaurant.category_slug,
+        category_label=restaurant.category_label,
+        district=restaurant.district,
+        description=restaurant.description,
+        image_url=restaurant.image_url,
+        view_count=stat.view_count if stat else 0,
+        closed_weekdays=closed,
+        closed_weekdays_label=_format_closed_weekdays(closed),
+        address=restaurant.address or "",
+        opening_hours=restaurant.opening_hours or "",
+        phone=restaurant.phone,
+        instagram_url=restaurant.instagram_url,
+        reservation_available=bool(restaurant.reservation_available),
+        reservation_note=restaurant.reservation_note or "",
+        menu_items=menu_items,
+    )
 
 
 @router.post("/restaurants/{restaurant_id}/view", response_model=RecordViewResponse)

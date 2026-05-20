@@ -13,11 +13,11 @@ from apps.gourmet.data.category_topics import (
     topics_for_category,
 )
 from apps.gourmet.models.restaurant import Restaurant
-from apps.gourmet.services.today_picks_service import seed_restaurants_if_empty
+from apps.gourmet.services.today_picks_service import ensure_restaurants_seeded
 
 logger = logging.getLogger(__name__)
 
-PICKS_PER_TOPIC = 8
+PICKS_PER_TOPIC = 10
 
 
 def _score_restaurant(restaurant: Restaurant, topic_slug: str) -> int:
@@ -61,7 +61,7 @@ def get_category_browse(
   Returns (category_slug, category_label, rows).
   Each row: topic fields + restaurants list.
     """
-    seed_restaurants_if_empty(db)
+    ensure_restaurants_seeded(db)
     pool = list(
         db.execute(
             select(Restaurant)

@@ -30,7 +30,8 @@ from apps.auth.auth_router import signup as auth_signup
 from apps.auth.user_model import User  # noqa: F401 — Base.metadata 등록
 from apps.secom.app.controllers.user_controller import router as secom_router
 from apps.gourmet.router import router as gourmet_router
-from apps.gourmet.services.today_picks_service import seed_restaurants_if_empty
+from apps.gourmet.services.restaurant_profile_service import sync_restaurant_profiles
+from apps.gourmet.services.today_picks_service import ensure_restaurants_seeded
 from apps.database import SyncSessionLocal
 from apps.matrix.app.keymaker import MissingGeminiKeyError, keymaker
 from apps.adapters.db_health_adapter import SqlAlchemyDbHealthAdapter
@@ -55,7 +56,8 @@ async def lifespan(app: FastAPI):
         if SyncSessionLocal is not None:
             db = SyncSessionLocal()
             try:
-                seed_restaurants_if_empty(db)
+                ensure_restaurants_seeded(db)
+                sync_restaurant_profiles(db)
             finally:
                 db.close()
         logger.info(

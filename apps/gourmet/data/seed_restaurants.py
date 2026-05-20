@@ -5,6 +5,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from apps.gourmet.data.restaurant_profile_enrich import enrich_seed_row
+from apps.gourmet.data.seed_restaurants_extra import SEED_RESTAURANTS_EXTRA
+
 
 def normalize_name_key(name: str) -> str:
     s = name.strip().lower()
@@ -285,7 +288,8 @@ SEED_RESTAURANTS: list[dict[str, Any]] = [
         "image_url": "https://images.unsplash.com/photo-1473093295048-9db8a9a774b2?w=600&q=80",
         "closed_weekdays": [0],
     },
-]
+] + SEED_RESTAURANTS_EXTRA
 
 for item in SEED_RESTAURANTS:
+    enrich_seed_row(item)
     item["name_key"] = normalize_name_key(item["name"])
